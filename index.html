@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>InCom Material Manager</title>
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+
+<style>
+*{
+    box-sizing:border-box;
+    margin:0;
+    padding:0;
+    font-family:Arial,sans-serif;
+}
+
+body{
+    background:#f3f6fa;
+    color:#1d2939;
+}
+
+header{
+    background:#064b9b;
+    color:white;
+    padding:18px;
+    text-align:center;
+}
+
+header h1{
+    font-size:22px;
+}
+
+header p{
+    margin-top:5px;
+    font-size:13px;
+}
+
+.container{
+    max-width:900px;
+    margin:auto;
+    padding:18px;
+}
+
+.card{
+    background:white;
+    border-radius:14px;
+    padding:18px;
+    margin-bottom:16px;
+    box-shadow:0 2px 10px rgba(0,0,0,.08);
+}
+
+h2{
+    color:#064b9b;
+    margin-bottom:15px;
+    font-size:19px;
+}
+
+label{
+    display:block;
+    font-weight:bold;
+    margin:12px 0 6px;
+}
+
+select,
+input{
+    width:100%;
+    padding:12px;
+    border:1px solid #ccd5df;
+    border-radius:8px;
+    font-size:15px;
+    background:white;
+}
+
+button{
+    border:0;
+    border-radius:8px;
+    padding:12px 16px;
+    cursor:pointer;
+    font-weight:bold;
+    font-size:14px;
+}
+
+.primary{
+    background:#064b9b;
+    color:white;
+    width:100%;
+    margin-top:18px;
+}
+
+.secondary{
+    background:#e8f0fa;
+    color:#064b9b;
+}
+
+.danger{
+    background:#fee2e2;
+    color:#b91c1c;
+}
+
+.hidden{
+    display:none;
+}
+
+.info{
+    background:#eef6ff;
+    border-left:4px solid #064b9b;
+    padding:12px;
+    margin-top:12px;
+    border-radius:6px;
+    font-size:14px;
+}
+
+.table-wrap{
+    overflow-x:auto;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:12px;
+    min-width:850px;
+}
+
+th,td{
+    border:1px solid #d9e0e7;
+    padding:9px;
+    text-align:left;
+    font-size:13px;
+}
+
+th{
+    background:#064b9b;
+    color:white;
+}
+
+.result{
+    margin-top:15px;
+}
+
+.badge{
+    display:inline-block;
+    padding:5px 9px;
+    border-radius:20px;
+    background:#e8f0fa;
+    color:#064b9b;
+    font-size:12px;
+    font-weight:bold;
+}
+
+.actions{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-top:15px;
+}
+
+.actions button{
+    flex:1;
+}
+
+#fileName{
+    margin-top:10px;
+    font-size:13px;
+    color:#475467;
+}
+
+@media print{
+    body{
+        background:white;
+    }
+
+    header,
+    .no-print{
+        display:none !important;
+    }
+
+    .card{
+        box-shadow:none;
+        border:0;
+    }
+
+    .print-area{
+        display:block !important;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>INCOM GROUP</h1>
+    <p>MATERIAL MANAGER</p>
+</header>
+
+<div class="container">
+
+<!-- HOME -->
+<div id="home">
+
+    <div class="card">
+        <h2>📦 Nouvelle demande</h2>
+
+        <label>Poste</label>
+        <select id="poste" onchange="changePoste()">
+            <option value="">-- Choisir le Poste --</option>
+            <option value="450">Poste 450</option>
+            <option value="402">Poste 402</option>
+            <option value="412">Poste 412</option>
+        </select>
+
+        <label>Projet</label>
+        <select id="projet" onchange="changeProjet()" disabled>
+            <option value="">-- Choisir le Projet --</option>
+        </select>
+
+        <div id="referenceBox" class="hidden">
+            <label>Reference</label>
+            <select id="reference" onchange="showAvailableMaterials()">
+                <option value="">-- Choisir la Reference --</option>
+            </select>
+        </div>
+
+        <button class="primary" onclick="calculateMaterials()">
+            CALCULER LES MATIÈRES
+        </button>
+    </div>
+
+    <div id="resultsCard" class="card hidden">
+        <h2>📋 Matières nécessaires</h2>
+
+        <div id="resultInfo"></div>
+
+        <div class="table-wrap">
+            <table id="materialsTable">
+                <thead>
+                    <tr>
+                        <th>ARTICLE</th>
+                        <th>DESCRIPTION</th>
+                        <th>REFERENCE</th>
+                        <th>QNTITY PAR UNIT</th>
+                        <th>LARGEUR</th>
+                        <th>LONGUEUR</th>
+                        <th>m² / ROULEAU</th>
+                        <th>QNTITY TOTALE</th>
+                        <th>QNTITY PAR ROULEAUX</th>
+                        <th>LOT</th>
+                        <th>SERIE</th>
+                    </tr>
+                </thead>
+                <tbody id="materialsBody"></tbody>
+            </table>
+        </div>
+
+        <div class="actions no-print">
+            <button class="primary" onclick="generateBon()">
+                📄 GÉNÉRER BON DE MATIÈRE
+            </button>
+        </div>
+    </div>
+
+</div>
+
+
+<!-- IMPORT EXCEL -->
+<div class="card no-print">
+
+    <h2>📥 Importer le fichier Excel</h2>
+
+    <p style="font-size:14px;margin-bottom:12px;">
+        Importez la dernière version du fichier Excel contenant les données des matières.
+    </p>
+
+    <input type="file"
+           id="excelFile"
+           accept=".xlsx,.xls"
+           onchange="importExcel(event)">
+
+    <div id="fileName">
+        Aucun fichier importé.
+    </div>
+
+</div>
+
+
+<!-- BON -->
+<div id="bonCard" class="card hidden print-area">
+
+    <h2>INCOM GROUP</h2>
+
+    <h3 style="margin-bottom:15px;">
+        BON DE MATIÈRE
+    </h3>
+
+    <div id="bonInfo"></div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>ARTICLE</th>
+                    <th>DESCRIPTION DE ARTICLE</th>
+                    <th>REFERENCE</th>
+                    <th>LOTE</th>
+                    <th>SERIE</th>
+                    <th>QNTITY PAR UNIT</th>
+                    <th>QNTITY PAR RROLOS</th>
+                </tr>
+            </thead>
+
+            <tbody id="bonBody"></tbody>
+        </table>
+    </div>
+
+    <div class="actions no-print">
+        <button class="primary" onclick="window.print()">
+            🖨️ IMPRIMER
+        </button>
+
+        <button class="secondary" onclick="shareBon()">
+            📤 PARTAGER
+        </button>
+    </div>
+
+</div>
+
+</div>
+
+
+<script>
+
+/* =========================================================
+   DONNÉES
+========================================================= */
+
+let materials = JSON.parse(
+    localStorage.getItem("incomMaterials") || "null"
+);
+
+/*
+Format attendu dans Excel :
+
+Projet
+Poste
+Reference
+Article
+Description
+Largeur
+Longueur
+Qty_Par_Unit
+
+Exemple :
+
+V163 WS | 450 | Shell | GLSIN10407 | Peel Ply 1500MM | 1.5 | 100 | 66
+*/
+
+if(!materials){
+
+    materials = [
+
+        {
+            Projet:"V163 WS",
+            Poste:"450",
+            Reference:"Shell",
+            Article:"GLSIN10407",
+            Description:"PEEL PLY 1500MM",
+            Largeur:1.5,
+            Longueur:100,
+            Qty_Par_Unit:66
+        },
+
+        {
+            Projet:"V163 WS",
+            Poste:"450",
+            Reference:"Shell",
+            Article:"GLSIN10423",
+            Description:"PEEL PLY 500MM",
+            Largeur:.5,
+            Longueur:100,
+            Qty_Par_Unit:22
+        },
+
+        {
+            Projet:"V163 WS",
+            Poste:"450",
+            Reference:"Shell",
+            Article:"GLSIN10424",
+            Description:"PEEL PLY 200MM",
+            Largeur:.2,
+            Longueur:100,
+            Qty_Par_Unit:1.76
+        },
+
+        {
+            Projet:"V163 WS",
+            Poste:"402",
+            Reference:"Shell",
+            Article:"EXAMPLE402",
+            Description:"PEEL PLY 4350MM",
+            Largeur:4.35,
+            Longueur:100,
+            Qty_Par_Unit:1
+        },
+
+        {
+            Projet:"V163 WS",
+            Poste:"412",
+            Reference:"Shell",
+            Article:"EXAMPLE412",
+            Description:"MATERIAL 412",
+            Largeur:1,
+            Longueur:100,
+            Qty_Par_Unit:1
+        }
+
+    ];
+}
+
+
+/* =========================================================
+   POSTE
+========================================================= */
+
+function changePoste(){
+
+    const poste = document.getElementById("poste").value;
+    const projet = document.getElementById("projet");
+    const referenceBox = document.getElementById("referenceBox");
+
+    projet.innerHTML =
+        '<option value="">-- Choisir le Projet --</option>';
+
+    document.getElementById("reference").innerHTML =
+        '<option value="">-- Choisir la Reference --</option>';
+
+    if(!poste){
+
+        projet.disabled = true;
+        referenceBox.classList.add("hidden");
+
+        return;
+    }
+
+    const projects = [
+        ...new Set(
+            materials
+            .filter(m => String(m.Poste) === poste)
+            .map(m => m.Projet)
+        )
+    ];
+
+    projects.forEach(p => {
+
+        const option = document.createElement("option");
+
+        option.value = p;
+        option.textContent = p;
+
+        projet.appendChild(option);
+
+    });
+
+    projet.disabled = false;
+
+    /*
+      450 = pas de Reference à choisir
+      402/412 = Reference obligatoire
+    */
+
+    if(poste === "450"){
+
+        referenceBox.classList.add("hidden");
+
+    }else{
+
+        referenceBox.classList.remove("hidden");
+
+    }
+}
+
+
+/* =========================================================
+   PROJET
+========================================================= */
+
+function changeProjet(){
+
+    const poste =
+        document.getElementById("poste").value;
+
+    const projet =
+        document.getElementById("projet").value;
+
+    const reference =
+        document.getElementById("reference");
+
+    reference.innerHTML =
+        '<option value="">-- Choisir la Reference --</option>';
+
+    if(poste === "450") return;
+
+    const refs = [
+        ...new Set(
+            materials
+            .filter(m =>
+                String(m.Poste) === poste &&
+                m.Projet === projet
+            )
+            .map(m => m.Reference)
+        )
+    ];
+
+    refs.forEach(r => {
+
+        const option =
+            document.createElement("option");
+
+        option.value = r;
+        option.textContent = r;
+
+        reference.appendChild(option);
+
+    });
+}
+
+
+/* =========================================================
+   CALCUL
+========================================================= */
+
+function calculateMaterials(){
+
+    const poste =
+        document.getElementById("poste").value;
+
+    const projet =
+        document.getElementById("projet").value;
+
+    const reference =
+        document.getElementById("reference").value;
+
+    if(!poste || !projet){
+
+        alert("Veuillez choisir le Poste et le Projet.");
+
+        return;
+    }
+
+    if((poste === "402" || poste === "412") && !reference){
+
+        alert("Veuillez choisir une Reference.");
+
+        return;
+    }
+
+    let rows = materials.filter(m =>
+
+        String(m.Poste) === poste &&
+        m.Projet === projet
+
+    );
+
+    if(poste !== "450"){
+
+        rows = rows.filter(
+            m => m.Reference === reference
+        );
+
+    }
+
+    if(rows.length === 0){
+
+        alert("Aucune matière trouvée.");
+
+        return;
+    }
+
+    const body =
+        document.getElementById("materialsBody");
+
+    body.innerHTML = "";
+
+    rows.forEach((m,index)=>{
+
+        const width =
+            Number(m.Largeur) || 0;
+
+        const length =
+            Number(m.Longueur) || 0;
+
+        const qtyUnit =
+            Number(m.Qty_Par_Unit) || 0;
+
+        /*
+           Surface d'un rouleau
+        */
+
+        const m2Roll =
+            width * length;
+
+        /*
+           Ici on utilise une unité par défaut.
+           Pour 450, les données Excel détermineront
+           la quantité par unité.
+        */
+
+        const qtyTotal =
+            qtyUnit;
+
+        /*
+           Nombre de rouleaux
+        */
+
+        const rolls =
+            m2Roll > 0
+            ? Math.ceil(qtyTotal / m2Roll)
+            : 0;
+
+        const tr =
+            document.createElement("tr");
+
+        tr.innerHTML = `
+
+            <td>${safe(m.Article)}</td>
+
+            <td>${safe(m.Description)}</td>
+
+            <td>${safe(m.Reference)}</td>
+
+            <td>${qtyUnit}</td>
+
+            <td>${width} m</td>
+
+            <td>${length} m</td>
+
+            <td>${m2Roll.toFixed(2)} m²</td>
+
+            <td>${qtyTotal.toFixed(2)} m²</td>
+
+            <td><strong>${rolls}</strong></td>
+
+            <td>
+                <input
+                    type="text"
+                    class="lot"
+                    placeholder="LOT"
+                >
+            </td>
+
+            <td>
+                <input
+                    type="text"
+                    class="serie"
+                    placeholder="SERIE"
+                >
+            </td>
+
+        `;
+
+        body.appendChild(tr);
+
+    });
+
+    document.getElementById("resultInfo").innerHTML = `
+
+        <div class="info">
+
+            <strong>Poste :</strong> ${poste}<br>
+
+            <strong>Projet :</strong> ${projet}<br>
+
+            ${
+                poste !== "450"
+                ? `<strong>Reference :</strong> ${reference}`
+                : `<strong>Mode :</strong> Toutes les References`
+            }
+
+        </div>
+
+    `;
+
+    document
+        .getElementById("resultsCard")
+        .classList.remove("hidden");
+}
+
+
+/* =========================================================
+   BON DE MATIÈRE
+========================================================= */
+
+function generateBon(){
+
+    const poste =
+        document.getElementById("poste").value;
+
+    const projet =
+        document.getElementById("projet").value;
+
+    const reference =
+        document.getElementById("reference").value;
+
+    const rows =
+        document.querySelectorAll(
+            "#materialsBody tr"
+        );
+
+    const bonBody =
+        document.getElementById("bonBody");
+
+    bonBody.innerHTML = "";
+
+    rows.forEach(row => {
+
+        const cells = row.children;
+
+        const article =
+            cells[0].innerText;
+
+        const description =
+            cells[1].innerText;
+
+        const ref =
+            cells[2].innerText;
+
+        const qtyUnit =
+            cells[3].innerText;
+
+        const rolls =
+            cells[8].innerText;
+
+        const lot =
+            row.querySelector(".lot").value;
+
+        const serie =
+            row.querySelector(".serie").value;
+
+        const tr =
+            document.createElement("tr");
+
+        tr.innerHTML = `
+
+            <td>${safe(article)}</td>
+
+            <td>${safe(description)}</td>
+
+            <td>${safe(ref)}</td>
+
+            <td>${safe(lot)}</td>
+
+            <td>${safe(serie)}</td>
+
+            <td>${qtyUnit}</td>
+
+            <td>${rolls}</td>
+
+        `;
+
+        bonBody.appendChild(tr);
+
+    });
+
+    document.getElementById("bonInfo").innerHTML = `
+
+        <div style="
+            display:grid;
+            grid-template-columns:1fr 1fr;
+            gap:8px;
+            margin-bottom:18px;
+        ">
+
+            <div>
+                <strong>POSTE:</strong> ${poste}
+            </div>
+
+            <div>
+                <strong>PROJET:</strong> ${projet}
+            </div>
+
+            <div>
+                <strong>REFERENCE:</strong>
+                ${poste === "450" ? "TOUTES" : reference}
+            </div>
+
+            <div>
+                <strong>DATE:</strong>
+                ${new Date().toLocaleDateString("fr-FR")}
+            </div>
+
+            <div>
+                <strong>HEURE:</strong>
+                ${new Date().toLocaleTimeString("fr-FR")}
+            </div>
+
+        </div>
+
+    `;
+
+    document
+        .getElementById("bonCard")
+        .classList.remove("hidden");
+
+    document
+        .getElementById("bonCard")
+        .scrollIntoView({
+            behavior:"smooth"
+        });
+}
+
+
+/* =========================================================
+   IMPORT EXCEL
+========================================================= */
+
+function importExcel(event){
+
+    const file =
+        event.target.files[0];
+
+    if(!file) return;
+
+    document.getElementById("fileName").innerHTML =
+        "⏳ Importation: " + file.name;
+
+    const reader =
+        new FileReader();
+
+    reader.onload = function(e){
+
+        try{
+
+            const data =
+                new Uint8Array(e.target.result);
+
+            const workbook =
+                XLSX.read(data,{
+                    type:"array"
+                });
+
+            const sheetName =
+                workbook.SheetNames[0];
+
+            const sheet =
+                workbook.Sheets[sheetName];
+
+            const json =
+                XLSX.utils.sheet_to_json(sheet);
+
+            if(!json.length){
+
+                alert("Le fichier Excel est vide.");
+
+                return;
+            }
+
+            /*
+              Mapping flexible des colonnes
+            */
+
+            materials =
+                json.map(row => ({
+
+                    Projet:
+                        row.Projet ??
+                        row.PROJECT ??
+                        row.project ??
+                        "",
+
+                    Poste:
+                        String(
+                            row.Poste ??
+                            row.POSTE ??
+                            ""
+                        ),
+
+                    Reference:
+                        row.Reference ??
+                        row.REFERENCE ??
+                        "",
+
+                    Article:
+                        row.Article ??
+                        row.ARTICLE ??
+                        "",
+
+                    Description:
+                        row.Description ??
+                        row["Description de article"] ??
+                        row.DESCRIPTION ??
+                        "",
+
+                    Largeur:
+                        Number(
+                            row.Largeur ??
+                            row["Largeur (m)"] ??
+                            row.WIDTH ??
+                            0
+                        ),
+
+                    Longueur:
+                        Number(
+                            row.Longueur ??
+                            row["Longueur (m)"] ??
+                            row.LENGTH ??
+                            0
+                        ),
+
+                    Qty_Par_Unit:
+                        Number(
+                            row.Qty_Par_Unit ??
+                            row["QNTITY PAR UNIT"] ??
+                            row["Quantity par unit"] ??
+                            0
+                        )
+
+                }));
+
+            localStorage.setItem(
+                "incomMaterials",
+                JSON.stringify(materials)
+            );
+
+            document.getElementById("fileName").innerHTML =
+                `✅ ${file.name}<br>
+                 ${materials.length} lignes importées.`;
+
+            alert(
+                "Excel importé avec succès !"
+            );
+
+            /*
+              Reset interface
+            */
+
+            document
+                .getElementById("poste")
+                .value = "";
+
+            document
+                .getElementById("projet")
+                .innerHTML =
+                '<option value="">-- Choisir le Projet --</option>';
+
+            document
+                .getElementById("projet")
+                .disabled = true;
+
+            document
+                .getElementById("referenceBox")
+                .classList.add("hidden");
+
+        }catch(error){
+
+            console.error(error);
+
+            alert(
+                "Erreur pendant l'importation du fichier Excel."
+            );
+
+        }
+
+    };
+
+    reader.readAsArrayBuffer(file);
+}
+
+
+/* =========================================================
+   PARTAGE
+========================================================= */
+
+async function shareBon(){
+
+    const text =
+        document.getElementById("bonCard").innerText;
+
+    if(navigator.share){
+
+        try{
+
+            await navigator.share({
+
+                title:"Bon de matière - InCom",
+                text:text
+
+            });
+
+        }catch(e){}
+
+    }else{
+
+        navigator.clipboard.writeText(text);
+
+        alert(
+            "Le Bon a été copié. Vous pouvez le coller dans WhatsApp."
+        );
+
+    }
+}
+
+
+/* =========================================================
+   SECURITY / TEXT
+========================================================= */
+
+function safe(value){
+
+    return String(value ?? "")
+        .replace(/&/g,"&amp;")
+        .replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;")
+        .replace(/'/g,"&#039;");
+
+}
+
+</script>
+
+</body>
+</html>
